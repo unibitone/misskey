@@ -35,6 +35,9 @@ export class SigninService {
 
 	@bindThis
 	public signin(request: FastifyRequest, reply: FastifyReply, user: MiLocalUser) {
+		console.log("====signin-request", request);
+		console.log("====signin-reply", reply);
+		console.log("====signin-user", user);
 		setImmediate(async () => {
 			this.notificationService.createNotification(user.id, 'login', {});
 

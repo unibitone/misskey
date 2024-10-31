@@ -73,6 +73,7 @@ export class SignupApiService {
 		reply: FastifyReply,
 	) {
 		const body = request.body;
+		console.log("----signup-body", body);
 
 		// Verify *Captcha
 		// 但测试时此机制会失效，因此禁用
@@ -230,6 +231,8 @@ export class SignupApiService {
 						usedById: account.id,
 					});
 				}
+				console.log("[signup]-res", res);
+				console.log("[signup]-token", secret);
 
 				return {
 					...res,
@@ -280,7 +283,10 @@ export class SignupApiService {
 				});
 			}
 
-			return this.signinService.signin(request, reply, account as MiLocalUser);
+			const res = this.signinService.signin(request, reply, account as MiLocalUser);
+			console.log("[signupPending]-res", res);
+			console.log("[signupPending]-account", account);
+			return res;
 		} catch (err) {
 			throw new FastifyReplyError(400, typeof err === 'string' ? err : (err as Error).toString());
 		}

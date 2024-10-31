@@ -75,7 +75,7 @@ export class SignupApiService {
 		const body = request.body;
 
 		// Verify *Captcha
-		// ただしテスト時はこの機構は障害となるため無効にする
+		// 但测试时此机制会失效，因此禁用
 		if (process.env.NODE_ENV !== 'test') {
 			if (this.meta.enableHcaptcha && this.meta.hcaptchaSecretKey) {
 				await this.captchaService.verifyHcaptcha(this.meta.hcaptchaSecretKey, body['hcaptcha-response']).catch(err => {
@@ -149,15 +149,15 @@ export class SignupApiService {
 				return;
 			}
 
-			// メアド認証が有効の場合
+			// 如果邮箱验证已启用
 			if (this.meta.emailRequiredForSignup) {
-				// メアド認証済みならエラー
+				// 如果已经通过邮箱验证则报错
 				if (ticket.usedBy) {
 					reply.code(400);
 					return;
 				}
 
-				// 認証しておらず、メール送信から30分以内ならエラー
+				// 如果未验证且在发送邮件后30分钟内则报错
 				if (ticket.usedAt && ticket.usedAt.getTime() + (1000 * 60 * 30) > Date.now()) {
 					reply.code(400);
 					return;

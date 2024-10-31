@@ -150,8 +150,8 @@ export const paramDef = {
 		renoteId: { type: 'string', format: 'misskey:id', nullable: true },
 		channelId: { type: 'string', format: 'misskey:id', nullable: true },
 
-		// anyOf内にバリデーションを書いても最初の一つしかチェックされない
-		// See https://github.com/misskey-dev/misskey/pull/10082
+		// anyOf内的验证只会检查第一个选项
+		// 参见 https://github.com/misskey-dev/misskey/pull/10082
 		text: {
 			type: 'string',
 			minLength: 1,
@@ -299,14 +299,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				}
 
 				if (renote.channelId && renote.channelId !== ps.channelId) {
-					// チャンネルのノートに対しリノート要求がきたとき、チャンネル外へのリノート可否をチェック
-					// リノートのユースケースのうち、チャンネル内→チャンネル外は少数だと考えられるため、JOINはせず必要な時に都度取得する
+					// 当收到对频道帖子的转发请求时，检查是否允许转发到频道外
+					// 由于频道内转发到频道外的用例较少，因此不使用 JOIN，而是在需要时获取
 					const renoteChannel = await this.channelsRepository.findOneBy({ id: renote.channelId });
 					if (renoteChannel == null) {
-						// リノートしたいノートが書き込まれているチャンネルが無い
+						// 要转发的帖子所在的频道不存在
 						throw new ApiError(meta.errors.noSuchChannel);
 					} else if (!renoteChannel.allowRenoteToExternal) {
-						// リノート作成のリクエストだが、対象チャンネルがリノート禁止だった場合
+						// 收到转发请求，但目标频道禁止转发
 						throw new ApiError(meta.errors.cannotRenoteOutsideOfChannel);
 					}
 				}
@@ -360,7 +360,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				}
 			}
 
-			// 投稿を作成
+			// 创建帖子
 			try {
 				const note = await this.noteCreateService.create(me, {
 					createdAt: new Date(),
@@ -388,7 +388,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					createdNote: await this.noteEntityService.pack(note, me),
 				};
 			} catch (e) {
-				// TODO: 他のErrorもここでキャッチしてエラーメッセージを当てるようにしたい
+				// TODO: 希望在这里捕获其他错误并设置相应的错误消息
 				if (e instanceof IdentifiableError) {
 					if (e.id === '689ee33f-f97c-479a-ac49-1b9f8140af99') {
 						throw new ApiError(meta.errors.containsProhibitedWords);

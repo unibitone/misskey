@@ -73,7 +73,7 @@ export class SigninWithPasskeyApiService {
 		}
 
 		const fail = async (userId: MiUser['id'], status?: number, failure?: { id: string }) => {
-			// Append signin history
+			// 记录登录历史
 			await this.signinsRepository.insert({
 				id: this.idService.gen(),
 				userId: userId,
@@ -85,8 +85,8 @@ export class SigninWithPasskeyApiService {
 		};
 
 		try {
-			// Not more than 1 API call per 250ms and not more than 100 attempts per 30min
-			// NOTE: 1 Sign-in require 2 API calls
+			// 每250毫秒不超过1次API调用，每30分钟不超过100次尝试
+			// 注意：1次登录需要2次API调用
 			await this.rateLimiterService.limit({ key: 'signin-with-passkey', duration: 60 * 30 * 1000, max: 200, minInterval: 250 }, getIpHash(request.ip));
 		} catch (err) {
 			reply.code(429);
@@ -99,7 +99,7 @@ export class SigninWithPasskeyApiService {
 			};
 		}
 
-		// Initiate Passkey Auth challenge with context
+		// 使用上下文初始化密钥认证挑战
 		if (!credential) {
 			const context = randomUUID();
 			this.logger.info(`Initiate Passkey challenge: context: ${context}`);
@@ -113,19 +113,19 @@ export class SigninWithPasskeyApiService {
 
 		const context = body.context;
 		if (!context || typeof context !== 'string') {
-			// If try Authentication without context
+			// 如果在没有上下文的情况下尝试认证
 			return error(400, {
 				id: '1658cc2e-4495-461f-aee4-d403cdf073c1',
 			});
 		}
 
-		this.logger.debug(`Try Sign-in with Passkey: context: ${context}`);
+		this.logger.debug(`尝试使用密钥登录：上下文：${context}`);
 
 		let authorizedUserId: MiUser['id'] | null;
 		try {
 			authorizedUserId = await this.webAuthnService.verifySignInWithPasskeyAuthentication(context, credential);
 		} catch (err) {
-			this.logger.warn(`Passkey challenge Verify error! : ${err}`);
+			this.logger.warn(`密钥认证验证错误！：${err}`);
 			const errorId = (err as IdentifiableError).id;
 			return error(403, {
 				id: errorId,
@@ -138,7 +138,6 @@ export class SigninWithPasskeyApiService {
 			});
 		}
 
-		// Fetch user
 		const user = await this.usersRepository.findOneBy({
 			id: authorizedUserId,
 			host: IsNull(),
@@ -158,7 +157,7 @@ export class SigninWithPasskeyApiService {
 
 		const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
 
-		// Authentication was successful, but passwordless login is not enabled
+		// 认证成功，但未启用无密码登录
 		if (!profile.usePasswordLessLogin) {
 			return await fail(user.id, 403, {
 				id: '2d84773e-f7b7-4d0b-8f72-bb69b584c912',

@@ -875,7 +875,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 				}
 			}
 		} else {
-			// TODO: キャッシュ？
+			// TODO: 缓存？
 			// eslint-disable-next-line prefer-const
 			let [followings, userListMemberships] = await Promise.all([
 				this.followingsRepository.find({
@@ -895,16 +895,16 @@ export class NoteCreateService implements OnApplicationShutdown {
 			]);
 
 			if (note.visibility === 'followers') {
-				// TODO: 重そうだから何とかしたい Set 使���？
+				// TODO: 因为可能会很耗性能，考虑使用 Set？
 				userListMemberships = userListMemberships.filter(x => x.userListUserId === user.id || followings.some(f => f.followerId === x.userListUserId));
 			}
 
-			// TODO: あまりにも数が多いと redisPipeline.exec に失敗する(理由は不明)ため、3万件程度を目安に分割して実行するようにする
+			// TODO: 由于数量太多可能导致 redisPipeline.exec 失败(原因不明)，因此考虑按照约3万条为单位分批执行
 			for (const following of followings) {
-				// 基本的にvisibleUserIdsには自身のidが含まれている前提であること
+				// 基本上 visibleUserIds 中应该包含自己的 id
 				if (note.visibility === 'specified' && !note.visibleUserIds.some(v => v === following.followerId)) continue;
 
-				// 「自分自身への返信 or そのフォロワーへの返信」のどちらでもない場合
+				// 如果既不是回复给自己也不是回复给该粉丝
 				if (isReply(note, following.followerId)) {
 					if (!following.withReplies) continue;
 				}
@@ -916,14 +916,14 @@ export class NoteCreateService implements OnApplicationShutdown {
 			}
 
 			for (const userListMembership of userListMemberships) {
-				// ダイレクトのとき、そのリストが対象外のユーザーの場合
+				// 如果是私信且该列表不包含目标用户
 				if (
 					note.visibility === 'specified' &&
 					note.userId !== userListMembership.userListUserId &&
 					!note.visibleUserIds.some(v => v === userListMembership.userListUserId)
 				) continue;
 
-				// 「自分自身への返信 or そのリストの作成者への返信」のどちらでもない場合
+				// 如果既不是回复给自己也不是回复给该列表创建者
 				if (isReply(note, userListMembership.userListUserId)) {
 					if (!userListMembership.withReplies) continue;
 				}
@@ -934,7 +934,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 				}
 			}
 
-			// 自分自身のHTL
+			// 自己的主页时间线
 			if (note.userHost == null) {
 				if (note.visibility !== 'specified' || !note.visibleUserIds.some(v => v === user.id)) {
 					this.fanoutTimelineService.push(`homeTimeline:${user.id}`, note.id, this.meta.perUserHomeTimelineCacheMax, r);

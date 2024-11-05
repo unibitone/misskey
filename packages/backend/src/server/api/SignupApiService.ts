@@ -258,7 +258,7 @@ export class SignupApiService {
 		request: FastifyRequest<{
 			Body: {
 				username: string;
-				password: string;
+				// password: string;
 				host?: string;
 				invitationCode?: string;
 				emailAddress?: string;

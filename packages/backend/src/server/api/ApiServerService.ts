@@ -128,7 +128,7 @@ export class ApiServerService {
 		fastify.post<{
 			Body: {
 				username: string;
-				password: string;
+				// password: string;
 				host?: string;
 				invitationCode?: string;
 				emailAddress?: string;
@@ -154,6 +154,21 @@ export class ApiServerService {
 				'testcaptcha-response'?: string;
 			};
 		}>('/signin-flow', (request, reply) => this.signinApiService.signin(request, reply));
+
+		// 登录接口 不需要密码
+		fastify.post<{
+			Body: {
+				username: string;
+				// password?: string;
+				token?: string;
+				credential?: AuthenticationResponseJSON;
+				'hcaptcha-response'?: string;
+				'g-recaptcha-response'?: string;
+				'turnstile-response'?: string;
+				'm-captcha-response'?: string;
+				'testcaptcha-response'?: string;
+			};
+		}>('/signin-flow_v1', (request, reply) => this.signinApiService.signin_v1(request, reply));
 
 		fastify.post<{
 			Body: {

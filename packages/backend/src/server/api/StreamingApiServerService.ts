@@ -158,7 +158,7 @@ export class StreamingApiServerService {
 			});
 		});
 
-		// 一定期間通信が無いコネクションは実際には切断されている可能性があるため定期的にterminateする
+		// 对于一段时间内没有通信的连接，可能实际上已经断开，因此需要定期终止这些连接
 		this.#cleanConnectionsIntervalId = setInterval(() => {
 			const now = Date.now();
 			for (const [connection, lastActive] of this.#connections.entries()) {

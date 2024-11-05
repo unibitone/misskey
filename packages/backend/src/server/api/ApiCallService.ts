@@ -158,6 +158,7 @@ export class ApiCallService implements OnApplicationShutdown {
 		const body = request.method === 'GET'
 			? request.query
 			: request.body;
+		console.log("----handleRequest-body", body);
 
 		// https://datatracker.ietf.org/doc/html/rfc6750.html#section-2.1 (case sensitive)
 		const token = request.headers.authorization?.startsWith('Bearer ')
@@ -167,7 +168,11 @@ export class ApiCallService implements OnApplicationShutdown {
 			reply.code(400);
 			return;
 		}
+		console.log("----handleRequest-token", token);
 		this.authenticateService.authenticate(token).then(([user, app]) => {
+			console.log("----authenticate");
+			console.log("----authenticate", user);
+			console.log("----authenticate", app);
 			this.call(endpoint, user, app, body, null, request).then((res) => {
 				if (request.method === 'GET' && endpoint.meta.cacheSec && !token && !user) {
 					reply.header('Cache-Control', `public, max-age=${endpoint.meta.cacheSec}`);

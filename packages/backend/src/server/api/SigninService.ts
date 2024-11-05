@@ -35,6 +35,9 @@ export class SigninService {
 
 	@bindThis
 	public signin(request: FastifyRequest, reply: FastifyReply, user: MiLocalUser) {
+		console.log("====signin-request", request);
+		console.log("====signin-reply", reply);
+		console.log("====signin-user", user);
 		setImmediate(async () => {
 			this.notificationService.createNotification(user.id, 'login', {});
 
@@ -50,9 +53,9 @@ export class SigninService {
 
 			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
 			if (profile.email && profile.emailVerified) {
-				this.emailService.sendEmail(profile.email, 'New login / ログインがありました',
-					'There is a new login. If you do not recognize this login, update the security status of your account, including changing your password. / 新しいログインがありました。このログインに心当たりがない場合は、パスワードを変更するなど、アカウントのセキュリティ状態を更新してください。',
-					'There is a new login. If you do not recognize this login, update the security status of your account, including changing your password. / 新しいログインがありました。このログインに心当たりがない場合は、パスワードを変更するなど、アカウントのセキュリティ状態を更新してください。');
+				this.emailService.sendEmail(profile.email, '新的登录 / New login',
+					'检测到新的登录。如果这不是您本人的登录操作，请及时更改密码等账户安全设置。/ There is a new login. If you do not recognize this login, update the security status of your account, including changing your password.',
+					'检测到新的登录。如果这不是您本人的登录操作，请及时更改密码等账户安全设置。/ There is a new login. If you do not recognize this login, update the security status of your account, including changing your password.');
 			}
 		});
 

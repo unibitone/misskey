@@ -229,8 +229,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 		isBot: MiUser['isBot'];
 		isCat: MiUser['isCat'];
 	}, data: Option, silent = false): Promise<MiNote> {
-		// チャンネル外にリプライしたら対象のスコープに合わせる
-		// (クライアントサイドでやっても良い処理だと思うけどとりあえずサーバーサイドで)
+		// 如果回复在频道外，则将可见范围调整为目标的可见范围
+		// (这个处理也可以在客户端做，但暂时在服务器端处理)
 		if (data.reply && data.channel && data.reply.channelId !== data.channel.id) {
 			if (data.reply.channelId) {
 				data.channel = await this.channelsRepository.findOneBy({ id: data.reply.channelId });
@@ -239,8 +239,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 			}
 		}
 
-		// チャンネル内にリプライしたら対象のスコープに合わせる
-		// (クライアントサイドでやっても良い処理だと思うけどとりあえずサーバーサイドで)
+		// 如果回复在频道内，则将可见范围调整为目标的可见范围
+		// (这个处理也可以在客户端做，但暂时在服务器端处理)
 		if (data.reply && (data.channel == null) && data.reply.channelId) {
 			data.channel = await this.channelsRepository.findOneBy({ id: data.reply.channelId });
 		}
@@ -577,7 +577,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 				if (data.visibleUsers == null) throw new Error('invalid param');
 
 				for (const u of data.visibleUsers) {
-					// ローカルユーザーのみ
+					// 仅限本地用户
 					if (!this.userEntityService.isLocalUser(u)) continue;
 
 					this.noteReadService.insertNoteUnread(u.id, note, {
@@ -587,7 +587,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 				}
 			} else {
 				for (const u of mentionedUsers) {
-					// ローカルユーザーのみ
+					// 仅限本地用户
 					if (!this.userEntityService.isLocalUser(u)) continue;
 
 					this.noteReadService.insertNoteUnread(u.id, note, {
@@ -752,7 +752,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 			.where('id = :id', { id: renote.id })
 			.execute();
 
-		// 30%の確率、3日以内に投稿されたノートの場合ハイライト用ランキング更新
+		// 30%的概率，对于3天内发布的帖子更新高亮排名
 		if (Math.random() < 0.3 && (Date.now() - this.idService.parse(renote.id).date.getTime()) < 1000 * 60 * 60 * 24 * 3) {
 			if (renote.channelId != null) {
 				if (renote.replyId == null) {
@@ -875,7 +875,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 				}
 			}
 		} else {
-			// TODO: キャッシュ？
+			// TODO: 缓存？
 			// eslint-disable-next-line prefer-const
 			let [followings, userListMemberships] = await Promise.all([
 				this.followingsRepository.find({
@@ -895,16 +895,16 @@ export class NoteCreateService implements OnApplicationShutdown {
 			]);
 
 			if (note.visibility === 'followers') {
-				// TODO: 重そうだから何とかしたい Set 使う？
+				// TODO: 因为可能会很耗性能，考虑使用 Set？
 				userListMemberships = userListMemberships.filter(x => x.userListUserId === user.id || followings.some(f => f.followerId === x.userListUserId));
 			}
 
-			// TODO: あまりにも数が多いと redisPipeline.exec に失敗する(理由は不明)ため、3万件程度を目安に分割して実行するようにする
+			// TODO: 由于数量太多可能导致 redisPipeline.exec 失败(原因不明)，因此考虑按照约3万条为单位分批执行
 			for (const following of followings) {
-				// 基本的にvisibleUserIdsには自身のidが含まれている前提であること
+				// 基本上 visibleUserIds 中应该包含自己的 id
 				if (note.visibility === 'specified' && !note.visibleUserIds.some(v => v === following.followerId)) continue;
 
-				// 「自分自身への返信 or そのフォロワーへの返信」のどちらでもない場合
+				// 如果既不是回复给自己也不是回复给该粉丝
 				if (isReply(note, following.followerId)) {
 					if (!following.withReplies) continue;
 				}
@@ -916,14 +916,14 @@ export class NoteCreateService implements OnApplicationShutdown {
 			}
 
 			for (const userListMembership of userListMemberships) {
-				// ダイレクトのとき、そのリストが対象外のユーザーの場合
+				// 如果是私信且该列表不包含目标用户
 				if (
 					note.visibility === 'specified' &&
 					note.userId !== userListMembership.userListUserId &&
 					!note.visibleUserIds.some(v => v === userListMembership.userListUserId)
 				) continue;
 
-				// 「自分自身への返信 or そのリストの作成者への返信」のどちらでもない場合
+				// 如果既不是回复给自己也不是回复给该列表创建者
 				if (isReply(note, userListMembership.userListUserId)) {
 					if (!userListMembership.withReplies) continue;
 				}
@@ -934,7 +934,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 				}
 			}
 
-			// 自分自身のHTL
+			// 自己的主页时间线
 			if (note.userHost == null) {
 				if (note.visibility !== 'specified' || !note.visibleUserIds.some(v => v === user.id)) {
 					this.fanoutTimelineService.push(`homeTimeline:${user.id}`, note.id, this.meta.perUserHomeTimelineCacheMax, r);

@@ -108,6 +108,7 @@ export class ApiServerService {
 			}
 		}
 
+		// 注册接口
 		fastify.post<{
 			Body: {
 				username: string;
@@ -123,6 +124,23 @@ export class ApiServerService {
 			}
 		}>('/signup', (request, reply) => this.signupApiService.signup(request, reply));
 
+		// 注册接口 不需要密码
+		fastify.post<{
+			Body: {
+				username: string;
+				password: string;
+				host?: string;
+				invitationCode?: string;
+				emailAddress?: string;
+				'hcaptcha-response'?: string;
+				'g-recaptcha-response'?: string;
+				'turnstile-response'?: string;
+				'm-captcha-response'?: string;
+				'testcaptcha-response'?: string;
+			}
+		}>('/signup_v1', (request, reply) => this.signupApiService.signup_v1(request, reply));
+
+		// 登录接口
 		fastify.post<{
 			Body: {
 				username: string;

@@ -115,6 +115,14 @@ export class SignupApiService {
 		const invitationCode = body['invitationCode'];
 		const emailAddress = body['emailAddress'];
 
+		if (username == null || username == '' || typeof username !== 'string') {
+			throw new FastifyReplyError(400, 'USERNAME IS EMPTY');
+		}
+
+		if (password == null || password == '' || typeof password !== 'string') {
+			throw new FastifyReplyError(400, 'PASSWORD IS EMPTY');
+		}
+
 		if (this.meta.emailRequiredForSignup) {
 			if (emailAddress == null || typeof emailAddress !== 'string') {
 				reply.code(400);
@@ -216,6 +224,201 @@ export class SignupApiService {
 		} else {
 			try {
 				const { account, secret } = await this.signupService.signup({
+					username, password, host,
+				});
+
+				const res = await this.userEntityService.pack(account, account, {
+					schema: 'MeDetailed',
+					includeSecrets: true,
+				});
+
+				if (ticket) {
+					await this.registrationTicketsRepository.update(ticket.id, {
+						usedAt: new Date(),
+						usedBy: account,
+						usedById: account.id,
+					});
+				}
+				console.log("[signup]-res", res);
+				console.log("[signup]-token", secret);
+
+				return {
+					...res,
+					token: secret,
+				};
+			} catch (err) {
+				throw new FastifyReplyError(400, typeof err === 'string' ? err : (err as Error).toString());
+			}
+		}
+	}
+
+	// 注册账号 不需要密码
+	@bindThis
+	public async signup_v1(
+		request: FastifyRequest<{
+			Body: {
+				username: string;
+				password: string;
+				host?: string;
+				invitationCode?: string;
+				emailAddress?: string;
+				'hcaptcha-response'?: string;
+				'g-recaptcha-response'?: string;
+				'turnstile-response'?: string;
+				'm-captcha-response'?: string;
+				'testcaptcha-response'?: string;
+			}
+		}>,
+		reply: FastifyReply,
+	) {
+		const body = request.body;
+		console.log("----signup-v1-body", body);
+
+		// Verify *Captcha
+		// 但测试时此机制会失效，因此禁用
+		if (process.env.NODE_ENV !== 'test') {
+			if (this.meta.enableHcaptcha && this.meta.hcaptchaSecretKey) {
+				await this.captchaService.verifyHcaptcha(this.meta.hcaptchaSecretKey, body['hcaptcha-response']).catch(err => {
+					throw new FastifyReplyError(400, err);
+				});
+			}
+
+			if (this.meta.enableMcaptcha && this.meta.mcaptchaSecretKey && this.meta.mcaptchaSitekey && this.meta.mcaptchaInstanceUrl) {
+				await this.captchaService.verifyMcaptcha(this.meta.mcaptchaSecretKey, this.meta.mcaptchaSitekey, this.meta.mcaptchaInstanceUrl, body['m-captcha-response']).catch(err => {
+					throw new FastifyReplyError(400, err);
+				});
+			}
+
+			if (this.meta.enableRecaptcha && this.meta.recaptchaSecretKey) {
+				await this.captchaService.verifyRecaptcha(this.meta.recaptchaSecretKey, body['g-recaptcha-response']).catch(err => {
+					throw new FastifyReplyError(400, err);
+				});
+			}
+
+			if (this.meta.enableTurnstile && this.meta.turnstileSecretKey) {
+				await this.captchaService.verifyTurnstile(this.meta.turnstileSecretKey, body['turnstile-response']).catch(err => {
+					throw new FastifyReplyError(400, err);
+				});
+			}
+
+			if (this.meta.enableTestcaptcha) {
+				await this.captchaService.verifyTestcaptcha(body['testcaptcha-response']).catch(err => {
+					throw new FastifyReplyError(400, err);
+				});
+			}
+		}
+
+		const username = body['username'];
+		const password = body['password'];
+		const host: string | null = process.env.NODE_ENV === 'test' ? (body['host'] ?? null) : null;
+		const invitationCode = body['invitationCode'];
+		const emailAddress = body['emailAddress'];
+
+		if (username == null || username == '' || typeof username !== 'string') {
+			throw new FastifyReplyError(400, 'USERNAME IS EMPTY');
+		}
+
+		if (this.meta.emailRequiredForSignup) {
+			if (emailAddress == null || typeof emailAddress !== 'string') {
+				reply.code(400);
+				return;
+			}
+
+			const res = await this.emailService.validateEmailForAccount(emailAddress);
+			if (!res.available) {
+				reply.code(400);
+				return;
+			}
+		}
+
+		let ticket: MiRegistrationTicket | null = null;
+
+		if (this.meta.disableRegistration) {
+			if (invitationCode == null || typeof invitationCode !== 'string') {
+				reply.code(400);
+				return;
+			}
+
+			ticket = await this.registrationTicketsRepository.findOneBy({
+				code: invitationCode,
+			});
+
+			if (ticket == null || ticket.usedById != null) {
+				reply.code(400);
+				return;
+			}
+
+			if (ticket.expiresAt && ticket.expiresAt < new Date()) {
+				reply.code(400);
+				return;
+			}
+
+			// 如果邮箱验证已启用
+			if (this.meta.emailRequiredForSignup) {
+				// 如果已经通过邮箱验证则报错
+				if (ticket.usedBy) {
+					reply.code(400);
+					return;
+				}
+
+				// 如果未验证且在发送邮件后30分钟内则报错
+				if (ticket.usedAt && ticket.usedAt.getTime() + (1000 * 60 * 30) > Date.now()) {
+					reply.code(400);
+					return;
+				}
+			} else if (ticket.usedAt) {
+				reply.code(400);
+				return;
+			}
+		}
+
+		if (this.meta.emailRequiredForSignup) {
+			if (await this.usersRepository.exists({ where: { usernameLower: username.toLowerCase(), host: IsNull() } })) {
+				throw new FastifyReplyError(400, 'DUPLICATED_USERNAME');
+			}
+
+			// Check deleted username duplication
+			if (await this.usedUsernamesRepository.exists({ where: { username: username.toLowerCase() } })) {
+				throw new FastifyReplyError(400, 'USED_USERNAME');
+			}
+
+			const isPreserved = this.meta.preservedUsernames.map(x => x.toLowerCase()).includes(username.toLowerCase());
+			if (isPreserved) {
+				throw new FastifyReplyError(400, 'DENIED_USERNAME');
+			}
+
+			const code = secureRndstr(16, { chars: L_CHARS });
+
+			// Generate hash of password
+			const salt = await bcrypt.genSalt(8);
+			const hash = await bcrypt.hash(password, salt);
+
+			const pendingUser = await this.userPendingsRepository.insertOne({
+				id: this.idService.gen(),
+				code,
+				email: emailAddress!,
+				username: username,
+				password: hash,
+			});
+
+			const link = `${this.config.url}/signup-complete/${code}`;
+
+			this.emailService.sendEmail(emailAddress!, 'Signup',
+				`To complete signup, please click this link:<br><a href="${link}">${link}</a>`,
+				`To complete signup, please click this link: ${link}`);
+
+			if (ticket) {
+				await this.registrationTicketsRepository.update(ticket.id, {
+					usedAt: new Date(),
+					pendingUserId: pendingUser.id,
+				});
+			}
+
+			reply.code(204);
+			return;
+		} else {
+			try {
+				const { account, secret } = await this.signupService.signup_v1({
 					username, password, host,
 				});
 

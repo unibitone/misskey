@@ -58,6 +58,122 @@ export class SignupService {
 		host?: string | null;
 		ignorePreservedUsernames?: boolean;
 	}) {
+		const { username, password, passwordHash, host } = opts;
+		console.log("SignupService-signup");
+		console.log("SignupService-signup-username", username);
+		console.log("SignupService-signup-password", password);
+		console.log("SignupService-signup-passwordHash", passwordHash);
+		let hash = passwordHash;
+		// password = "Abc123123";
+		// passwordHash = null;
+
+		// Validate username
+		if (!this.userEntityService.validateLocalUsername(username)) {
+			throw new Error('INVALID_USERNAME');
+		}
+
+		if (password != null && passwordHash == null) {
+			// Validate password
+			if (!this.userEntityService.validatePassword(password)) {
+				throw new Error('INVALID_PASSWORD');
+			}
+
+			// Generate hash of password
+			const salt = await bcrypt.genSalt(8);
+			hash = await bcrypt.hash(password, salt);
+		}
+
+		// Generate secret
+		const secret = generateUserToken();
+
+		// Check username duplication
+		if (await this.usersRepository.exists({ where: { usernameLower: username.toLowerCase(), host: IsNull() } })) {
+			throw new Error('DUPLICATED_USERNAME');
+		}
+
+		// Check deleted username duplication
+		if (await this.usedUsernamesRepository.exists({ where: { username: username.toLowerCase() } })) {
+			throw new Error('USED_USERNAME');
+		}
+
+		const isTheFirstUser = !await this.instanceActorService.realLocalUsersPresent();
+
+		if (!opts.ignorePreservedUsernames && !isTheFirstUser) {
+			const isPreserved = this.meta.preservedUsernames.map(x => x.toLowerCase()).includes(username.toLowerCase());
+			if (isPreserved) {
+				throw new Error('USED_USERNAME');
+			}
+		}
+
+		const keyPair = await new Promise<string[]>((res, rej) =>
+			generateKeyPair('rsa', {
+				modulusLength: 2048,
+				publicKeyEncoding: {
+					type: 'spki',
+					format: 'pem',
+				},
+				privateKeyEncoding: {
+					type: 'pkcs8',
+					format: 'pem',
+					cipher: undefined,
+					passphrase: undefined,
+				},
+			}, (err, publicKey, privateKey) =>
+				err ? rej(err) : res([publicKey, privateKey]),
+			));
+
+		let account!: MiUser;
+
+		// Start transaction
+		await this.db.transaction(async transactionalEntityManager => {
+			const exist = await transactionalEntityManager.findOneBy(MiUser, {
+				usernameLower: username.toLowerCase(),
+				host: IsNull(),
+			});
+
+			if (exist) throw new Error(' the username is already used');
+
+			account = await transactionalEntityManager.save(new MiUser({
+				id: this.idService.gen(),
+				username: username,
+				usernameLower: username.toLowerCase(),
+				host: this.utilityService.toPunyNullable(host),
+				token: secret,
+				isRoot: isTheFirstUser,
+			}));
+
+			await transactionalEntityManager.save(new MiUserKeypair({
+				publicKey: keyPair[0],
+				privateKey: keyPair[1],
+				userId: account.id,
+			}));
+
+			await transactionalEntityManager.save(new MiUserProfile({
+				userId: account.id,
+				autoAcceptFollowed: true,
+				password: hash,
+			}));
+
+			await transactionalEntityManager.save(new MiUsedUsername({
+				createdAt: new Date(),
+				username: username.toLowerCase(),
+			}));
+		});
+
+		this.usersChart.update(account, true);
+		this.userService.notifySystemWebhook(account, 'userCreated');
+
+		return { account, secret };
+	}
+
+	@bindThis
+	public async signup_v1(opts: {
+		username: MiUser['username'];
+		password?: string | null;
+		passwordHash?: MiUserProfile['password'] | null;
+		host?: string | null;
+		ignorePreservedUsernames?: boolean;
+	}) {
 		let { username, password, passwordHash, host } = opts;
 		let hash = passwordHash;
 		password = "Abc123123";

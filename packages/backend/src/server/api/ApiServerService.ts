@@ -212,6 +212,16 @@ export class ApiServerService {
 			}
 		});
 
+		// starnest 接口
+		// http://localhost:5173/api/v1/starnest/notes
+		fastify.get('/v1/starnest/notes', async (request, reply) => {
+			console.log("request", request);
+			console.log("reply", reply);
+
+			reply.code(200);
+			return {"notes": "ok"};
+		});
+
 		// Make sure any unknown path under /api returns HTTP 404 Not Found,
 		// because otherwise ClientServerService will return the base client HTML
 		// page with HTTP 200.

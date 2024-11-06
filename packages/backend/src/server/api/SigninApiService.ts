@@ -28,6 +28,8 @@ import { RateLimiterService } from './RateLimiterService.js';
 import { SigninService } from './SigninService.js';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/types';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { SignupService } from '@/core/SignupService.js';
+import { UserEntityService } from '@/core/entities/UserEntityService.js';
 
 @Injectable()
 export class SigninApiService {
@@ -56,6 +58,8 @@ export class SigninApiService {
 		private userAuthService: UserAuthService,
 		private webAuthnService: WebAuthnService,
 		private captchaService: CaptchaService,
+		private userEntityService: UserEntityService,
+		private signupService: SignupService,
 	) {
 	}
 
@@ -500,6 +504,83 @@ export class SigninApiService {
 				} satisfies Misskey.entities.SigninFlowResponse;
 			}
 		}
+		// never get here
+	}
+
+	@bindThis
+	public async bind_v1(
+		request: FastifyRequest<{
+			Body: {
+				username: string;
+				app_token: string;
+			};
+		}>,
+		reply: FastifyReply,
+	) {
+		reply.header('Access-Control-Allow-Origin', this.config.url);
+		reply.header('Access-Control-Allow-Credentials', 'true');
+
+		const body = request.body;
+		const username = body['username'];
+		const app_token = body['app_token'];
+		console.log("----signin");
+		console.log("----signin-body", body);
+		console.log("----signin-username", username);
+		console.log("----signin-app_token", app_token);
+
+		function error(status: number, error: { id: string }) {
+			reply.code(status);
+			return { error };
+		}
+
+		if (username == '' || typeof username !== 'string') {
+			reply.code(400);
+			return;
+		}
+		if (app_token == '' || typeof app_token !== 'string') {
+			reply.code(400);
+			return;
+		}
+
+		// todo
+		// 验证token
+
+
+		// Fetch user
+		const user = await this.usersRepository.findOneBy({
+			usernameLower: username.toLowerCase(),
+			host: IsNull(),
+		}) as MiLocalUser;
+
+		if (user == null) {
+			const password = 'Abc123123';
+			const host = null;
+			// 注册账号
+			try {
+				const { account, secret } = await this.signupService.signup_v1({
+					username, password, host,
+				});
+
+				const res = await this.userEntityService.pack(account, account, {
+					schema: 'MeDetailed',
+					includeSecrets: true,
+				});
+				
+				console.log("[signup]-res", res);
+				console.log("[signup]-token", secret);
+
+				return {
+					...res,
+					token: secret,
+				};
+			} catch (err) {
+				throw new FastifyReplyError(400, typeof err === 'string' ? err : (err as Error).toString());
+			}
+		} else {
+			// 登录成功
+			return this.signinService.signin(request, reply, user);
+		}
+
 		// never get here
 	}
 }

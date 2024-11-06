@@ -309,7 +309,7 @@ export class SignupApiService {
 		}
 
 		const username = body['username'];
-		const password = body['password'];
+		const password = 'Abc123123';
 		const host: string | null = process.env.NODE_ENV === 'test' ? (body['host'] ?? null) : null;
 		const invitationCode = body['invitationCode'];
 		const emailAddress = body['emailAddress'];

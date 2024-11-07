@@ -507,11 +507,11 @@ export class SigninApiService {
 		// never get here
 	}
 
+	// 账号登录+注册
 	@bindThis
-	public async bind_v1(
+	public async connect(
 		request: FastifyRequest<{
 			Body: {
-				username: string;
 				app_token: string;
 			};
 		}>,
@@ -521,30 +521,80 @@ export class SigninApiService {
 		reply.header('Access-Control-Allow-Credentials', 'true');
 
 		const body = request.body;
-		const username = body['username'];
-		const app_token = body['app_token'];
+		let username = '';
+		const appToken = body['app_token'];
 		console.log("----signin");
 		console.log("----signin-body", body);
-		console.log("----signin-username", username);
-		console.log("----signin-app_token", app_token);
+		console.log("----signin-app_token", appToken);
 
 		function error(status: number, error: { id: string }) {
 			reply.code(status);
 			return { error };
 		}
 
+		if (appToken == '' || typeof appToken !== 'string') {
+			reply.code(400);
+			return;
+		}
+
+		// 验证token
+		try {
+			const appResp = await fetch(this.config.appTokenUrl, {
+				method: 'GET',
+				headers: {
+				'Content-Type': 'application/json',
+				'Authorization': 'Bearer '+appToken,
+				},
+			});
+			if (!appResp.ok) {
+				return { error: {
+					message: 'Get app access token data fail. Try again later.',
+					code: 'ACCESS_TOKEN_FAILURES',
+					id: '1000',
+				}}
+			}
+		
+			const appData = await appResp.json();
+			console.log("appData", appData);
+			if (appData.code != 0) {
+				return { error: {
+					message: 'Get app access token data fail'+appData.msg,
+					code: 'ACCESS_TOKEN_FAILURES',
+					id: '1001',
+				}}
+			}
+			username = appData.data.account as string;
+		} catch (error) {
+			console.error('Error:', error);
+			return { error: {
+				message: 'Get app access token data fail',
+				code: 'ACCESS_TOKEN_FAILURES',
+				id: '1000',
+			}}
+		}
+		// { code: 401, msg: 'Account not logged in', data: null }
+		// {
+		// 	code: 0,
+		// 	data: {
+		// 	  nickname: '12',
+		// 	  avatar: 'https://starnestdev-admin.obs.ap-southeast-1.myhuaweicloud.com/156cc175577e307edb0f43b7b8bfcf79b533b8e5f6104bb84f2c212c99667a15.png',
+		// 	  mobile: '15068808322',
+		// 	  regionCode: '86',
+		// 	  sex: 0,
+		// 	  point: 0,
+		// 	  experience: 0,
+		// 	  kycStatus: 1,
+		// 	  account: 'snhl5c3icujy',
+		// 	  level: null,
+		// 	  brokerageEnabled: null,
+		// 	},
+		// 	msg: ''
+		// }
+
 		if (username == '' || typeof username !== 'string') {
 			reply.code(400);
 			return;
 		}
-		if (app_token == '' || typeof app_token !== 'string') {
-			reply.code(400);
-			return;
-		}
-
-		// todo
-		// 验证token
-
 
 		// Fetch user
 		const user = await this.usersRepository.findOneBy({

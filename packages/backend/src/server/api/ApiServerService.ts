@@ -173,10 +173,9 @@ export class ApiServerService {
 		// app登录接口（自动注册）
 		fastify.post<{
 			Body: {
-				username: string;
 				app_token: string;
 			};
-		}>('/bind_v1', (request, reply) => this.signinApiService.bind_v1(request, reply));
+		}>('/connect', (request, reply) => this.signinApiService.connect(request, reply));
 
 		fastify.post<{
 			Body: {

@@ -24,6 +24,7 @@ type RedisOptionsSource = Partial<RedisOptions> & {
  */
 type Source = {
 	url?: string;
+	appTokenUrl: string;
 	port?: number;
 	socket?: string;
 	chmodSocket?: string;
@@ -163,6 +164,7 @@ export type Config = {
 	wsUrl: string;
 	authUrl: string;
 	driveUrl: string;
+	appTokenUrl: string,
 	userAgent: string;
 	frontendEntry: string;
 	frontendManifestExists: boolean;
@@ -222,6 +224,9 @@ export function loadConfig(): Config {
 	const scheme = url.protocol.replace(/:$/, '');
 	const wsScheme = scheme.replace('http', 'ws');
 
+	// app-token获取用户信息
+	const appTokenUrl = config.appTokenUrl;
+
 	const dbDb = config.db.db ?? process.env.DATABASE_DB ?? '';
 	const dbUser = config.db.user ?? process.env.DATABASE_USER ?? '';
 	const dbPass = config.db.pass ?? process.env.DATABASE_PASSWORD ?? '';
@@ -249,6 +254,7 @@ export function loadConfig(): Config {
 		apiUrl: `${scheme}://${host}/api`,
 		authUrl: `${scheme}://${host}/auth`,
 		driveUrl: `${scheme}://${host}/files`,
+		appTokenUrl: appTokenUrl,
 		db: { ...config.db, db: dbDb, user: dbUser, pass: dbPass },
 		dbReplications: config.dbReplications,
 		dbSlaves: config.dbSlaves,

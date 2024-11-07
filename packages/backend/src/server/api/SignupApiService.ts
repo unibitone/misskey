@@ -418,8 +418,9 @@ export class SignupApiService {
 			return;
 		} else {
 			try {
+				let name = username;
 				const { account, secret } = await this.signupService.signup_v1({
-					username, password, host,
+					username, name, password, host,
 				});
 
 				const res = await this.userEntityService.pack(account, account, {

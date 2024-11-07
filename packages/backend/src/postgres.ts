@@ -101,6 +101,9 @@ class MyCustomLogger implements Logger {
 	public logQuery(query: string, parameters?: any[]) {
 		// sqlLogger.info(this.highlight(query).substring(0, 100));
 		sqlLogger.info(this.highlight(query));
+		if (parameters && parameters!.length > 0) {
+			sqlLogger.info(parameters!.join(' '));
+		}
 	}
 
 	@bindThis

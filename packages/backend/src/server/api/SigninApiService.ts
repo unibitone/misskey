@@ -625,7 +625,7 @@ export class SigninApiService {
 
 				return {
 					...res,
-					token: secret,
+					i: secret,
 				};
 			} catch (err) {
 				throw new FastifyReplyError(400, typeof err === 'string' ? err : (err as Error).toString());

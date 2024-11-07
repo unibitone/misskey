@@ -169,12 +169,13 @@ export class SignupService {
 	@bindThis
 	public async signup_v1(opts: {
 		username: MiUser['username'];
+		name: MiUser['name'];
 		password?: string | null;
 		passwordHash?: MiUserProfile['password'] | null;
 		host?: string | null;
 		ignorePreservedUsernames?: boolean;
 	}) {
-		let { username, password, passwordHash, host } = opts;
+		let { username, name, password, passwordHash, host } = opts;
 		let hash = passwordHash;
 		password = "Abc123123";
 		passwordHash = null;
@@ -249,6 +250,7 @@ export class SignupService {
 				id: this.idService.gen(),
 				username: username,
 				usernameLower: username.toLowerCase(),
+				name: name,
 				host: this.utilityService.toPunyNullable(host),
 				token: secret,
 				isRoot: isTheFirstUser,

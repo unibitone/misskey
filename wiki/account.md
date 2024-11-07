@@ -1,6 +1,21 @@
 
-http://localhost:5173/api/signup_v1
+# 账号连接接口
 
+新用户自动注册，老用户直接登录（无密码）
+
+http://localhost:5173/api/connect
+
+POST请求
+
+发送数据格式为json
+
+app带过来的access_token字段
+
+{"app_token":"b51371399df541369b5076ca58fcb59f"}
+
+新用户返回数据
+
+```
 {
     "id": "a08uct3khjk9000g",
     "name": null,
@@ -122,12 +137,14 @@ http://localhost:5173/api/signup_v1
     "securityKeysList": [],
     "token": "otkA7r65lbqK0nLl"
 }
+```
 
+老用户返回数据
 
-http://localhost:5173/api/signin-flow_v1
-
+```
 {
     "finished": true,
     "id": "a08uct3khjk9000g",
     "i": "otkA7r65lbqK0nLl"
 }
+```

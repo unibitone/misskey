@@ -523,6 +523,7 @@ export class SigninApiService {
 		const body = request.body;
 		let username = '';
 		let name = '';
+		let avatarUrl = '';
 		const appToken = body['app_token'];
 		console.log("----signin");
 		console.log("----signin-body", body);
@@ -566,6 +567,7 @@ export class SigninApiService {
 			}
 			username = appData.data.account as string;
 			name = appData.data.nickname as string;
+			avatarUrl = appData.data.avatar as string;
 		} catch (error) {
 			console.error('Error:', error);
 			return { error: {
@@ -610,7 +612,7 @@ export class SigninApiService {
 			// 注册账号
 			try {
 				const { account, secret } = await this.signupService.signup_v1({
-					username, name, password, host,
+					username, name, avatarUrl, password, host,
 				});
 
 				const res = await this.userEntityService.pack(account, account, {

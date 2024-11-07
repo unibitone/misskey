@@ -135,7 +135,7 @@ app带过来的access_token字段
     "email": null,
     "emailVerified": false,
     "securityKeysList": [],
-    "token": "otkA7r65lbqK0nLl"
+    "i": "otkA7r65lbqK0nLl"
 }
 ```
 
